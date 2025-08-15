@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+coverage/
+.turbo/
+.next/
+
+# Environment and secrets
+.env
+.env.*
+*.local
+.vercel/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# SQLite databases and journals
+*.sqlite
+*.sqlite3
+*.db
+*.db3
+*.sqlite-journal
+server/dev.sqlite3
+server/prod.sqlite3
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE/editor
+.vscode/
+.idea/
+server/node_modules/
+server/.env
+server/package-lock.json
+client/node_modules/
+client/package-lock.json
+node_modules/
+package-lock.json
+*.sqlite
+*.sqlite3
+*.db
+*.db3
+*.sqlite-journal
+server/dev.sqlite3

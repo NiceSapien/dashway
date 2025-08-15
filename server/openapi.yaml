@@ -1,0 +1,530 @@
+openapi: 3.1.0
+info:
+  title: Dashway API
+  version: 1.0.0
+  description: |
+    REST API for Dashway password manager. Uses JWT auth and per-request master password header for encryption/decryption.
+servers:
+  - url: https://api.example.com
+    description: Production
+  - url: http://localhost:3000
+    description: Local
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    MasterPassword:
+      name: x-master-password
+      in: header
+      required: true
+      description: Master password for encrypt/decrypt operations
+      schema:
+        type: string
+  schemas:
+    Password:
+      type: object
+      properties:
+        id: { type: integer }
+        website: { type: string }
+        username: { type: string }
+  createdAt: { type: string, format: date-time }
+  updatedAt: { type: string, format: date-time }
+    NewPassword:
+      type: object
+      properties:
+        website: { type: string }
+        username: { type: string }
+        password: { type: string }
+      required: [website, username, password]
+    DecryptedPassword:
+      type: object
+      properties:
+        password: { type: string }
+    SecureNote:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+  createdAt: { type: string, format: date-time }
+  updatedAt: { type: string, format: date-time }
+    DecryptedNote:
+      type: object
+      properties:
+        content: { type: string }
+    Payment:
+      type: object
+      properties:
+        id: { type: integer }
+        type: { type: string, enum: [card, bankAccount] }
+        name: { type: string }
+  createdAt: { type: string, format: date-time }
+  updatedAt: { type: string, format: date-time }
+    PersonalInfo:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+  createdAt: { type: string, format: date-time }
+  updatedAt: { type: string, format: date-time }
+paths:
+  /api/auth/login:
+    post:
+      summary: Login a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+              required: [email, password]
+      responses:
+        '200':
+          description: Tokens and user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
+                  email: { type: string }
+                  accessToken: { type: string }
+                  refreshToken: { type: string }
+        '401': { description: Invalid credentials }
+  /api/auth/logout:
+    post:
+      summary: Logout a user (invalidate refresh token)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+              required: [email]
+      responses:
+        '200': { description: Logged out }
+  /api/auth/refresh:
+    post:
+      summary: Refresh tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken: { type: string }
+              required: [refreshToken]
+      responses:
+        '200':
+          description: New tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      accessToken: { type: string }
+                      refreshToken: { type: string }
+        '403': { description: Invalid or expired refresh token }
+  /api/auth/me:
+    get:
+      summary: Get current user
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
+                  email: { type: string }
+  /api/auth/register:
+    post:
+      summary: Register a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+              required: [email, password]
+      responses:
+        '201': { description: Created }
+        '409': { description: Email exists }
+  /api/passwords:
+    get:
+      summary: List passwords
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Password'
+    post:
+      summary: Create password
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/MasterPassword'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewPassword'
+      responses:
+        '201': { description: Created }
+  /api/passwords/{id}:
+    put:
+      summary: Update password
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - $ref: '#/components/parameters/MasterPassword'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewPassword'
+      responses:
+        '200': { description: Updated }
+    delete:
+      summary: Delete password
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Deleted }
+  /api/passwords/decrypt/{id}:
+    post:
+      summary: Decrypt password
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - $ref: '#/components/parameters/MasterPassword'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecryptedPassword'
+  /api/notes:
+    get:
+      summary: List notes
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SecureNote'
+    post:
+      summary: Create note
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/MasterPassword'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                content: { type: string }
+              required: [title, content]
+      responses:
+        '201': { description: Created }
+  /api/notes/decrypt/{id}:
+  /api/notes/{id}:
+    put:
+      summary: Update note
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - $ref: '#/components/parameters/MasterPassword'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                content: { type: string }
+              required: [title, content]
+      responses:
+        '200': { description: Updated }
+    delete:
+      summary: Delete note
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Deleted }
+    post:
+      summary: Decrypt note
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - $ref: '#/components/parameters/MasterPassword'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecryptedNote'
+  /api/payments:
+    get:
+      summary: List payments
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payment'
+    post:
+      summary: Create payment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/MasterPassword'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type: { type: string, enum: [card, bankAccount] }
+                name: { type: string }
+                data: { type: object }
+              required: [type, name, data]
+      responses:
+        '201': { description: Created }
+  /api/payments/decrypt/{id}:
+  /api/payments/{id}:
+    put:
+      summary: Update payment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - $ref: '#/components/parameters/MasterPassword'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type: { type: string, enum: [card, bankAccount] }
+                name: { type: string }
+                data: { type: object }
+              required: [type, name, data]
+      responses:
+        '200': { description: Updated }
+    delete:
+      summary: Delete payment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Deleted }
+    post:
+      summary: Decrypt payment data
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - $ref: '#/components/parameters/MasterPassword'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/personal-info:
+    get:
+      summary: List personal info
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonalInfo'
+    post:
+      summary: Create personal info
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/MasterPassword'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                data: { type: object }
+              required: [name, data]
+      responses:
+        '201': { description: Created }
+  /api/personal-info/decrypt/{id}:
+  /api/personal-info/{id}:
+    put:
+      summary: Update personal info
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - $ref: '#/components/parameters/MasterPassword'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                data: { type: object }
+              required: [name, data]
+      responses:
+        '200': { description: Updated }
+    delete:
+      summary: Delete personal info
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Deleted }
+    post:
+      summary: Decrypt personal info
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - $ref: '#/components/parameters/MasterPassword'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/backup/export:
+    post:
+      summary: Export encrypted snapshot to S3 (optional)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Exported }
+  /api/backup/sqlite/upload:
+    post:
+      summary: Upload SQLite file to S3 (optional)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Uploaded }
+  /api/backup/sqlite/download:
+  /api/security/analyze:
+    get:
+      summary: Analyze password security
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/MasterPassword'
+      responses:
+        '200':
+          description: Security analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  overallScore: { type: integer }
+                  totalPasswords: { type: integer }
+                  weakCount: { type: integer }
+                  reusedCount: { type: integer }
+                  oldPasswordCount: { type: integer }
+                  passwords:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        website: { type: string }
+                        username: { type: string }
+                        password: { type: string }
+                        isWeak: { type: boolean }
+                        isReused: { type: boolean }
+                        isOld: { type: boolean }
+    get:
+      summary: Get signed URL to download SQLite (optional)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url: { type: string }
